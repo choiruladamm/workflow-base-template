@@ -53,10 +53,10 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
     event.context.auth;
 
   if (hasUserRecordInKinde) {
-    console.log("User exists in Kinde");
-    return;
+    console.log("User exists in Kinde, without password, so no need to check external system");    
   }
-  console.log("User does not exist in Kinde");
+  
+  // console.log("User does not exist in Kinde");
   try {
     // The URL of the API you want to send the payload to
     const BASE_URL = getEnvironmentVariable(
