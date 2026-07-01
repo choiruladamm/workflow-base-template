@@ -74,6 +74,7 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
     };
 
 
+    console.log('entry triggered legacy login')
     const response = await fetch(BASE_URL + "/v3/auth/legacy-login", {
       method: "POST",
       responseFormat: "json",
@@ -82,6 +83,7 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
       },
       body: payload,
     });
+    console.log('response triggered legacy login')
 
     // if (!userData) {
     //   // If the email/password is not verified in the external system, you can invalidate the form field
