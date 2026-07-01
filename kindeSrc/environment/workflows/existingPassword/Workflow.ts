@@ -74,7 +74,7 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
     };
 
 
-    const { data: userData } = await secureFetch(BASE_URL + "/v3/auth/legacy-login", {
+    const response = await secureFetch(BASE_URL + "/v3/auth/legacy-login", {
       method: "POST",
       responseFormat: "json",
       headers: {
@@ -83,11 +83,15 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
       body: payload,
     });
 
-    if (!userData) {
+    // if (!userData) {
+    //   // If the email/password is not verified in the external system, you can invalidate the form field
+    //   invalidateFormField("p_password", "Email or password not found");
+    // } 
+
+    if (!response.ok) {
       // If the email/password is not verified in the external system, you can invalidate the form field
       invalidateFormField("p_password", "Email or password not found");
-    } 
-    
+    }
     // else {
     //   // Password is verified in the external system
     //   // You can create the user in Kinde and set the password
