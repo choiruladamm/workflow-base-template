@@ -83,6 +83,10 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
       },
       body: payload,
     });
+
+    if (response.status === 200) {
+      console.log('User migrated successful');
+    }
     console.log('response triggered legacy login')
 
     // if (!userData) {
