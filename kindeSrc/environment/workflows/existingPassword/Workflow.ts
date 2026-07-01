@@ -9,6 +9,8 @@ import {
   createKindeAPI
 } from "@kinde/infrastructure";
 
+const API_BASE_URL = "https://api.testing.scafflinq.com";
+
 // This workflow requires you to set up the Kinde management API
 // You can do this by going to the Kinde dashboard.
 //
@@ -57,11 +59,11 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
   console.log("User does not exist in Kinde");
   try {
     // The URL of the API you want to send the payload to
-    const CHECK_PASSWORD_API_URL = getEnvironmentVariable(
-      "CHECK_PASSWORD_API_URL"
+    const BASE_URL = getEnvironmentVariable(
+      "API_BASE_URL"
     )?.value;
 
-    if (!CHECK_PASSWORD_API_URL) {
+    if (!BASE_URL) {
       throw Error("Endpoint not set");
     }
 
@@ -71,7 +73,8 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
       password: password,
     };
 
-    const { data: userData } = await secureFetch(CHECK_PASSWORD_API_URL, {
+
+    const { data: userData } = await secureFetch(BASE_URL + "/v3/auth/legacy-login", {
       method: "POST",
       responseFormat: "json",
       headers: {
