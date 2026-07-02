@@ -4,51 +4,114 @@ import {
   WorkflowTrigger,
   invalidateFormField,
   secureFetch,
+  fetch,
   getEnvironmentVariable,
+  createKindeAPI,
 } from "@kinde/infrastructure";
 
 export const workflowSettings: WorkflowSettings = {
   id: "onExistingPasswordProvided",
   trigger: WorkflowTrigger.ExistingPasswordProvided,
-  failurePolicy: {
-    action: "stop",
-  },
+  failurePolicy: { action: "stop" },
   bindings: {
+    "kinde.widget": {},
     "kinde.secureFetch": {},
+    "kinde.fetch": {},
     "kinde.env": {},
+    url: {},
   },
 };
 
 export default async function Workflow(event: onExistingPasswordProvidedEvent) {
-  const { providedEmail, password, hasUserRecordInKinde } =
+  const { providedEmail, password, hashedPassword, hasUserRecordInKinde } =
     event.context.auth;
 
+  console.log(`[START] Processing login for: ${providedEmail}`);
+  console.log(`[AUTH] hasUserRecordInKinde: ${hasUserRecordInKinde}`);
+
   if (hasUserRecordInKinde) {
+    console.log("[SKIP] User already exists in Kinde, skipping workflow");
     return;
   }
 
-  const LEGACY_LOGIN_URL = getEnvironmentVariable("LEGACY_LOGIN_URL")?.value;
-  if (!LEGACY_LOGIN_URL) {
-    throw Error("LEGACY_LOGIN_URL not set");
+  const API_BASE = getEnvironmentVariable("API_BASE_URL")?.value;
+  if (!API_BASE) {
+    console.error("[ERROR] API_BASE_URL environment variable not set");
+    throw Error("API_BASE_URL not set");
   }
+  console.log(`[CONFIG] API_BASE_URL: ${API_BASE}`);
 
-  const { data } = await secureFetch(LEGACY_LOGIN_URL, {
-    method: "POST",
-    responseFormat: "json",
-    headers: { "content-type": "application/json" },
-    body: {
-      email: providedEmail,
-      password: password,
-    },
-  });
+  try {
+    console.log(`[REQUEST] POST ${API_BASE}/auth/authorize`);
+    const loginRes = await secureFetch(`${API_BASE}/auth/authorize`, {
+      method: "POST",
+      responseFormat: "json",
+      headers: { "content-type": "application/json" },
+      body: { account: providedEmail, password },
+    });
+    console.log(`[RESPONSE] /auth/authorize status: ${loginRes?.status || "no status"}`);
 
-  if (!data?.success) {
-    invalidateFormField(
-      "p_password",
-      "Email or password not found"
-    );
+    if (!loginRes?.data) {
+      console.warn("[FAIL] Login failed - invalid email or password");
+      invalidateFormField("p_password", "Email or password not found");
+      return;
+    }
+    console.log("[SUCCESS] Login success, token obtained");
+
+    console.log(`[REQUEST] GET ${API_BASE}/v3/user/me`);
+    const meRes = await secureFetch(`${API_BASE}/v3/user/me`, {
+      method: "GET",
+      responseFormat: "json",
+      headers: { Authorization: `Bearer ${loginRes.data}` },
+    });
+    console.log(`[RESPONSE] /v3/user/me status: ${meRes?.status || "no status"}`);
+
+    if (!meRes?.data?.success) {
+      console.warn("[FAIL] Failed to fetch user data after login");
+      invalidateFormField("p_password", "Failed to get user data");
+      return;
+    }
+
+    const userData = meRes.data.data;
+    const nameParts = (userData.fullName ?? "").split(" ");
+    console.log(`[USER] id: ${userData.id}, name: ${userData.fullName}, role: ${userData.role}`);
+
+    console.log("[KINDE] Initializing Management API...");
+    const kindeAPI = await createKindeAPI(event);
+
+    console.log("[KINDE] Creating user in Kinde...");
+    const { data: res } = await kindeAPI.post({
+      endpoint: "user",
+      params: JSON.stringify({
+        profile: {
+          given_name: nameParts[0] || userData.email,
+          family_name: nameParts.slice(1).join(" ") || "",
+        },
+        identities: [{
+          type: "email",
+          is_verified: true,
+          details: { email: providedEmail },
+        }],
+      }),
+    });
+    console.log(`[KINDE] User created with ID: ${res.id}`);
+
+    console.log("[KINDE] Setting password...");
+    const { data: pwdRes } = await kindeAPI.put({
+      endpoint: `users/${res.id}/password`,
+      params: {
+        hashed_password: hashedPassword,
+      },
+    });
+    console.log(`[KINDE] Password set: ${pwdRes?.message || "OK"}`);
+    console.log("[COMPLETE] Migration successful, login proceeds");
+
+  } catch (error) {
+    console.error("[FATAL] Workflow error:", error);
+    throw error;
   }
 }
+
 
 // import {
 //   onExistingPasswordProvidedEvent,
