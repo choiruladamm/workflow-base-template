@@ -190,7 +190,7 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
 
 
     console.log('entry triggered legacy login')
-    const response = await fetch(BASE_URL + "/v3/auth/legacy-login", {
+    const response = await secureFetch(BASE_URL + "/v3/auth/legacy-login", {
       method: "POST",
       responseFormat: "json",
       headers: {
