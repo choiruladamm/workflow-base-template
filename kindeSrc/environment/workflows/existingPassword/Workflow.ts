@@ -199,10 +199,10 @@ export default async function Workflow(event: onExistingPasswordProvidedEvent) {
       body: payload,
     });
 
-    if (response.status === 200) {
-      console.log('User migrated successful');
-    }
-    console.log('response triggered legacy login')
+      console.log({response});
+    // if (response.status === 200) {
+    // }
+    // console.log('response triggered legacy login')
 
     // if (!userData) {
     //   // If the email/password is not verified in the external system, you can invalidate the form field
